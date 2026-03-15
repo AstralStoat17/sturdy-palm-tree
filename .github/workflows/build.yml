@@ -18,10 +18,10 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Nightly Release APK
-        run: ./gradlew assembleNightlyRelease
+        run: assembleNightlyDebug
 
       - name: Upload Nightly APK
         uses: actions/upload-artifact@v4
         with:
           name: gitnex-nightly
-          path: app/build/outputs/apk/nightly/release/*.apk
+          path: app/build/outputs/apk/nightly/debug/*.apk
