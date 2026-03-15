@@ -17,8 +17,8 @@ jobs:
       - name: Grant execute permission to Gradle
         run: chmod +x ./gradlew
 
-      - name: Build Nightly Release APK
-        run: assembleNightlyDebug
+      - name: Build Nightly Debug APK
+        run: ./gradlew assembleNightlyDebug
 
       - name: Upload Nightly APK
         uses: actions/upload-artifact@v4
