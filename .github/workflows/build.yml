@@ -1,0 +1,23 @@
+name: Build Android 
+
+on:
+  push:
+    paths:
+    []
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: alvrme/alpine-android:android-34-jdk21
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Grant execute permission to Gradle
+        run: chmod +x ./gradlew
+
+      - name: Build Free Release APK
+        run: ./gradlew assembleFreeRelease

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#1f2926</color>
+    <color name="colorPrimaryDark">#1f2926</color>
+    <color name="colorAccent">#7f7e7b</color>
+    <color name="hintColor">#7f7e7b</color>
+    <color name="colorWhite">#ffffff</color>
+    <color name="black">#000009</color>
+    <color name="tooltipBackground">#1e88ce</color>
+    <color name="blurColor">#41818181</color>
+    <color name="btnBackground">#009486</color>
+    <color name="btnTextColor">#ffffff</color>
+    <color name="inputBackground">#1d1d1d</color>
+    <color name="inputSelected">#3A3A3A</color>
+    <color name="toastBackground">#1d1d1d</color>
+    <color name="releasePre">#f2711c</color>
+    <color name="releaseStable">@color/btnBackground</color>
+    <color name="colorRed">#CC361C</color>
+    <color name="colorLightGreen">#49da39</color>
+    <color name="colorDarkGreen">#009486</color>
+    <color name="darkRed">#e74c3c</color>
+    <color name="lightBlue">#3faef7</color>
+    <color name="lightGray">#b6bbbf</color>
+    <color name="darkGreen">#368f73</color>
+    <color name="diffRemovedColor">#574343</color>
+    <color name="diffAddedColor">#485A4B</color>
+    <color name="diffSelectedColor">#434343</color>
+    <color name="dividerColorDark">#1d1d1d</color>
+    <color name="lightYellow">#efd34a</color>
+    <color name="warningColor">#dbb109</color>
+    <color name="colorSecondaryContainer">#2A322E</color>
+    <color name="cardBackground">#1e2221</color>
+
+    <color name="lightThemeDiffRemovedColor">#FCEDED</color>
+    <color name="lightThemeDiffAddedColor">#EAF8ED</color>
+    <color name="lightThemeDiffSelectedColor">#e0e0e0</color>
+    <color name="lightThemeTextColor">#646565</color>
+    <color name="lightThemeBackground">#e5eae8</color>
+    <color name="lightThemeInputBackground">#EFEFEF</color>
+    <color name="lightThemInputSelected">#C9CCCC</color>
+    <color name="lightThemeInputTextColor">#212121</color>
+    <color name="lightThemeDividerColor">#dbdbdb</color>
+    <color name="lightThemeColorSecondaryContainer">#D9E1DF</color>
+    <color name="lightThemeCardBackground">#ffffff</color>
+
+    <color name="retroThemeDiffRemovedColor">#fad6d6</color>
+    <color name="retroThemeDiffAddedColor">#d0f7d9</color>
+    <color name="retroThemeDiffSelectedColor">#d8d8d8</color>
+    <color name="retroThemeTextColor">#212f3c</color>
+    <color name="retroThemeBackground">#eae5f1</color>
+    <color name="retroThemeInputBackground">#f2f2f2</color>
+    <color name="retroThemeInputSelected">#D3D3D3</color>
+    <color name="retroThemeInputTextColor">#6200EE</color>
+    <color name="retroThemeDividerColor">#dbdbdb</color>
+    <color name="retroThemeColorPrimary">#6200EE</color>
+    <color name="retroThemeColorSecondary">#03DAC6</color>
+    <color name="retroThemeCardBackground">#ffffff</color>
+
+    <color name="iconPrMergedColor">#a333c8</color>
+    <color name="iconIssuePrClosedColor">#db2828</color>
+
+    <color name="pitchBlackThemeBackground">#050505</color>
+    <color name="pitchBlackThemeTextColor">#d2d2d2</color>
+    <color name="pitchBlackThemeDividerColor">#0E0E0E</color>
+    <color name="pitchBlackThemeGeneralBackgroundColor">#151515</color>
+    <color name="pitchBlackThemeColorSecondary">#161918</color>
+    <color name="pitchBlackThemeCardBackground">#0C0C0C</color>
+
+    <color name="codebergDarkThemeBackground">#001420</color>
+    <color name="codebergDarkThemeTextColor">#D8DAE0</color>
+    <color name="codebergDarkThemeDividerColor">#082437</color>
+    <color name="codebergDarkThemeGeneralBackgroundColor">#0c1a24</color>
+    <color name="codebergDarkThemeColorSecondary">#082437</color>
+    <color name="codebergDarkThemeCardBackground">#041C2C</color>
+    <color name="codebergDarkThemeIconsColors">#9dacb6</color>
+    <color name="codebergDarkColorPrimary">#4592CB</color>
+    <color name="codebergDarkInputBackground">#04121b</color>
+    <color name="codebergDarkHintColor">#ABAAAA</color>
+
+    <color name="heatmap_grey">#ebedf0</color>
+    <color name="heatmap_green_1">#c6e2c6</color>
+    <color name="heatmap_green_2">#7bc96f</color>
+    <color name="heatmap_green_3">#4c9b4c</color>
+    <color name="heatmap_green_4">#2d6b2d</color>
+
+    <color name="alert_note_border">#4C78A8</color>
+    <color name="alert_tip_border">#2EA44F</color>
+    <color name="alert_important_border">#6F42C1</color>
+    <color name="alert_warning_border">#DAA038</color>
+    <color name="alert_caution_border">#D73A49</color>
+    <color name="alert_text">#24292E</color>
+
+    <color name="chipColor1">#E3F2FD</color>
+    <color name="chipColor2">#E8F5E8</color>
+    <color name="chipColor3">#FFF3E0</color>
+    <color name="chipColor4">#F3E5F5</color>
+    <color name="chipColor5">#FFEBEE</color>
+</resources>

@@ -1,0 +1,55 @@
+steps:
+  prepare:
+    image: alpine
+    commands:
+      - cp crowdin.example.yml crowdin.yml
+      - sed -i 's/-removed-/'"$CROWDIN_TOKEN"'/' crowdin.yml
+    environment:
+      CROWDIN_TOKEN:
+        from_secret: CROWDIN_TOKEN
+    when:
+      event: [ push, tag, cron ]
+      branch: main
+
+  pull:
+    image: crowdin/cli:3.16.0
+    # we do not need to update the config file again since it persists
+    commands:
+      - crowdin pull
+    when:
+      event: [ push, cron ]
+      branch: main
+
+  push-git:
+    image: alpine/git
+    environment:
+      GIT_AUTHOR_NAME:
+        from_secret: GIT_AUTHOR_NAME
+      GIT_AUTHOR_EMAIL:
+        from_secret: GIT_AUTHOR_EMAIL
+      GIT_COMMIT_MESSAGE:
+        from_secret: GIT_COMMIT_MESSAGE
+      GITEA_HOST:
+        from_secret: GITEA_HOST
+      GITEA_REPOSITORY:
+        from_secret: GITEA_REPOSITORY
+      GITEA_BRANCH:
+        from_secret: GITEA_BRANCH
+      BOT_TOKEN:
+        from_secret: BOT_TOKEN
+    commands:
+      # Setup git credentials and checkout target branch
+      - git config user.name  "$${GIT_AUTHOR_NAME}"
+      - git config user.email "$${GIT_AUTHOR_EMAIL}"
+      - git checkout "$${GITEA_BRANCH}"
+      # Stage all important files for commit
+      - git add -A .
+      # If files have changed, create a new commit and push it to the branch this pipeline was started on
+      - >
+        if git commit --message "$${GIT_COMMIT_MESSAGE}"; then
+          git remote set-url origin "https://$${BOT_TOKEN}@$${GITEA_HOST}/$${GITEA_REPOSITORY}"
+          git push origin "$${GITEA_BRANCH}"
+        fi
+    when:
+      branch: main
+      event: [ push, cron ]

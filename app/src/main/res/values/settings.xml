@@ -1,0 +1,133 @@
+<resources>
+    <string-array name="languages">
+        <item>en</item>
+        <item>ar</item>
+        <item>zh</item>
+        <item>cs</item>
+        <item>fi</item>
+        <item>fr</item>
+        <item>de</item>
+        <item>it</item>
+        <item>ja</item>
+        <item>fa</item>
+        <item>pl</item>
+        <item>pt</item>
+        <item>ru</item>
+        <item>sr</item>
+        <item>es</item>
+        <item>si</item>
+        <item>tr</item>
+        <item>uk</item>
+        <item>el</item>
+        <item>eo</item>
+        <item>zh-TW</item>
+    </string-array>
+
+    <string-array name="provider_options">
+        <item>Gitea</item>
+        <item>Forgejo</item>
+        <item>Codeberg (Forgejo-based)</item>
+        <item>I am not sure</item>
+    </string-array>
+
+    <string-array name="fonts">
+        <item>Roboto</item>
+        <item>Manrope</item>
+        <item>Source Code Pro</item>
+        <item>@string/system_font</item>
+    </string-array>
+
+    <string-array name="themes">
+        <item>Dark</item>
+        <item>Light</item>
+        <item>Auto (Light/Dark)</item>
+        <item>Retro</item>
+        <item>Auto (Retro/Dark)</item>
+        <item>Pitch Black</item>
+        <item>@string/followSystem</item>
+        <item>@string/followSystemBlack</item>
+    </string-array>
+
+    <string-array name="themesAndroid12">
+        <item>Dark</item>
+        <item>Light</item>
+        <item>Auto (Light/Dark)</item>
+        <item>Retro</item>
+        <item>Auto (Retro/Dark)</item>
+        <item>Pitch Black</item>
+        <item>@string/followSystem</item>
+        <item>@string/followSystemBlack</item>
+        <item>@string/dynamicColorsFollowSystem</item>
+        <item>@string/codebergDark</item>
+    </string-array>
+
+    <string-array name="appDefaultHomeScreen">
+        <item>@string/home</item>
+        <item>@string/navMyRepos</item>
+        <item>@string/pageTitleStarredRepos</item>
+        <item>@string/navOrg</item>
+        <item>@string/navRepos</item>
+        <item>@string/navProfile</item>
+        <item>@string/pageTitleExplore</item>
+    </string-array>
+
+    <string-array name="appDefaultHomeScreenNew">
+        <item>@string/home</item>
+        <item>@string/navMyRepos</item>
+        <item>@string/pageTitleStarredRepos</item>
+        <item>@string/navOrg</item>
+        <item>@string/navRepos</item>
+        <item>@string/pageTitleExplore</item>
+        <item>@string/pageTitleNotifications</item>
+        <item>@string/navMyIssues</item>
+        <item>@string/navMostVisited</item>
+        <item>@string/navNotes</item>
+        <item>@string/activities</item>
+        <item>@string/navWatchedRepositories</item>
+    </string-array>
+
+    <string-array name="linkHandlerDefaultScreen">
+        <item>@string/none</item>
+        <item>@string/navRepos</item>
+        <item>@string/navOrg</item>
+        <item>@string/pageTitleNotifications</item>
+        <item>@string/pageTitleExplore</item>
+    </string-array>
+
+    <string-array name="cacheSizeList">
+        <item>@string/cacheSize0</item>
+        <item>@string/cacheSize1</item>
+        <item>@string/cacheSize2</item>
+        <item>@string/cacheSize3</item>
+    </string-array>
+
+    <string-array name="ceColors">
+        <item>@string/ceColorFive</item>
+        <item>@string/ceColorBlueMoon</item>
+    </string-array>
+
+    <string-array name="ceIndentation">
+        <item>@string/ceIndentationSpaces</item>
+        <item>@string/ceIndentationTabs</item>
+    </string-array>
+
+    <string-array name="ceIndentationTabsWidth">
+        <item>@string/ceIndentationTabsWidth2</item>
+        <item>@string/ceIndentationTabsWidth4</item>
+        <item>@string/ceIndentationTabsWidth6</item>
+        <item>@string/ceIndentationTabsWidth8</item>
+    </string-array>
+
+    <string-array name="fragmentTabsAnimation">
+        <item>@string/fadeOut</item>
+        <item>@string/zoomOut</item>
+        <item>@string/none</item>
+    </string-array>
+
+    <string-array name="notificationsPollingDelay">
+        <item>@string/pollingDelay15Minutes</item>
+        <item>@string/pollingDelay30Minutes</item>
+        <item>@string/pollingDelay45Minutes</item>
+        <item>@string/pollingDelay1Hour</item>
+    </string-array>
+</resources>

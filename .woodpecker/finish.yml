@@ -1,0 +1,21 @@
+depends_on:
+  - build
+  - locale
+  - check
+
+skip_clone: true
+
+steps:
+  discord:
+    image: appleboy/drone-discord
+    settings:
+      message: "{{#success build.status}} ✅  Build #{{build.number}} of `{{repo.name}}` succeeded.\n\n📝 Commit by {{commit.author}}:\n``` {{commit.message}} ```\n\n🌐 {{ build.link }} {{else}} ❌  Build #{{build.number}} of `{{repo.name}}` failed.\n\n📝 Commit by {{commit.author}}:\n``` {{commit.message}} ```\n\n🌐 {{ build.link }} {{/success}}\n"
+      webhook_id:
+        from_secret:
+          DISCORD_BOT_ID
+      webhook_token:
+        from_secret:
+          DISCORD_BOT_SECRET
+    when:
+      event: [ push ]
+      branch: main

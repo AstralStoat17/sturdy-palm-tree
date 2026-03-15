@@ -1,0 +1,861 @@
+package org.mian.gitnex.activities;
+
+import static org.mian.gitnex.helpers.BackupUtil.checkpointIfWALEnabled;
+import static org.mian.gitnex.helpers.BackupUtil.copyFile;
+import static org.mian.gitnex.helpers.BackupUtil.getTempDir;
+import static org.mian.gitnex.helpers.BackupUtil.unzip;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.util.TypedValue;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.TextView;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.text.HtmlCompat;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import io.mikael.urlbuilder.UrlBuilder;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.util.Objects;
+import org.gitnex.tea4j.v2.models.GeneralAPISettings;
+import org.gitnex.tea4j.v2.models.ServerVersion;
+import org.gitnex.tea4j.v2.models.User;
+import org.mian.gitnex.R;
+import org.mian.gitnex.clients.RetrofitClient;
+import org.mian.gitnex.database.api.BaseApi;
+import org.mian.gitnex.database.api.UserAccountsApi;
+import org.mian.gitnex.database.models.UserAccount;
+import org.mian.gitnex.databinding.ActivityLoginBinding;
+import org.mian.gitnex.helpers.AppUtil;
+import org.mian.gitnex.helpers.NetworkStatusObserver;
+import org.mian.gitnex.helpers.PathsHelper;
+import org.mian.gitnex.helpers.SnackBar;
+import org.mian.gitnex.helpers.UrlHelper;
+import org.mian.gitnex.helpers.Version;
+import org.mian.gitnex.structs.Protocol;
+import retrofit2.Call;
+import retrofit2.Callback;
+
+/**
+ * @author mmarif
+ */
+public class LoginActivity extends BaseActivity {
+
+	private ActivityLoginBinding activityLoginBinding;
+	private String selectedProtocol;
+	private URI instanceUrl;
+	private Version giteaVersion;
+	private int maxResponseItems = 50;
+	private int defaultPagingNumber = 25;
+	private final String DATABASE_NAME = "gitnex";
+	private boolean hasShownInitialNetworkError = false;
+	private int btnText;
+	private String selectedProvider = "gitea";
+	private String proxyAuthUsername = null;
+	private String proxyAuthPassword = null;
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+
+		super.onCreate(savedInstanceState);
+
+		activityLoginBinding = ActivityLoginBinding.inflate(getLayoutInflater());
+		setContentView(activityLoginBinding.getRoot());
+
+		String mode = getIntent().getStringExtra("mode");
+		if (mode == null) {
+			mode = "login";
+			btnText = R.string.btnLogin;
+		} else if (mode.equals("update_account")) {
+			btnText = R.string.update_account;
+		} else {
+			btnText = R.string.addNewAccountText;
+		}
+
+		if (mode.equals("new_account")) {
+			activityLoginBinding.loginButton.setText(btnText);
+			activityLoginBinding.restoreFromBackup.setVisibility(View.GONE);
+		} else if (mode.equals("update_account")) {
+			activityLoginBinding.loginButton.setText(btnText);
+			activityLoginBinding.restoreFromBackup.setVisibility(View.GONE);
+
+			int accountId = tinyDB.getInt("currentActiveAccountId", -1);
+			if (accountId != -1) {
+				UserAccountsApi userAccountsApi = BaseApi.getInstance(ctx, UserAccountsApi.class);
+
+				if (userAccountsApi != null) {
+
+					UserAccount account = userAccountsApi.getAccountById(accountId);
+					if (account != null) {
+
+						proxyAuthUsername = account.getProxyAuthUsername();
+						proxyAuthPassword = account.getProxyAuthPassword();
+
+						selectedProvider = account.getProvider();
+						String[] providerOptions =
+								getResources().getStringArray(R.array.provider_options);
+
+						if ("gitea".equalsIgnoreCase(selectedProvider)) {
+							activityLoginBinding.providerSpinner.setText(providerOptions[0], false);
+						} else if ("forgejo".equalsIgnoreCase(selectedProvider)) {
+							activityLoginBinding.providerSpinner.setText(providerOptions[1], false);
+						} else {
+							activityLoginBinding.providerSpinner.setText(providerOptions[2], false);
+						}
+
+						String url = account.getInstanceUrl();
+						activityLoginBinding.instanceUrl.setText(getCleanUrlForDisplay(url));
+
+						try {
+							URI uri = new URI(url);
+							String scheme = uri.getScheme();
+							selectedProtocol =
+									(scheme != null && scheme.equalsIgnoreCase("http"))
+											? Protocol.HTTP.toString()
+											: Protocol.HTTPS.toString();
+						} catch (Exception e) {
+							selectedProtocol = Protocol.HTTPS.toString();
+						}
+						activityLoginBinding.httpsSpinner.setText(selectedProtocol, false);
+					}
+				}
+			}
+		} else {
+			activityLoginBinding.loginButton.setText(btnText);
+			activityLoginBinding.restoreFromBackup.setVisibility(View.VISIBLE);
+		}
+
+		activityLoginBinding.setupProxyAuth.setOnClickListener(view -> showProxyAuthDialog());
+
+		NetworkStatusObserver networkStatusObserver = NetworkStatusObserver.getInstance(ctx);
+
+		activityLoginBinding.appVersion.setText(AppUtil.getAppVersion(appCtx));
+
+		ArrayAdapter<Protocol> adapterProtocols =
+				new ArrayAdapter<>(
+						LoginActivity.this, R.layout.list_spinner_items, Protocol.values());
+
+		ArrayAdapter<CharSequence> adapterProviders =
+				ArrayAdapter.createFromResource(
+						this, R.array.provider_options, R.layout.list_spinner_items);
+
+		String instanceUrlExtra = getIntent().getStringExtra("instanceUrl");
+		String scheme = getIntent().getStringExtra("scheme");
+		if (instanceUrlExtra != null && !instanceUrlExtra.isEmpty()) {
+			activityLoginBinding.instanceUrl.setText(instanceUrlExtra);
+			if (scheme != null && scheme.equals("http")) {
+				activityLoginBinding.httpsSpinner.setText(Protocol.HTTP.toString());
+				selectedProtocol = Protocol.HTTP.toString();
+			} else {
+				activityLoginBinding.httpsSpinner.setText(Protocol.HTTPS.toString());
+				selectedProtocol = Protocol.HTTPS.toString();
+			}
+		} else {
+			activityLoginBinding.httpsSpinner.setText(Protocol.HTTPS.toString());
+			selectedProtocol = Protocol.HTTPS.toString();
+		}
+
+		activityLoginBinding.httpsSpinner.setAdapter(adapterProtocols);
+		activityLoginBinding.httpsSpinner.setSelection(0);
+		activityLoginBinding.httpsSpinner.setOnItemClickListener(
+				(parent, view, position, id) -> {
+					selectedProtocol = String.valueOf(parent.getItemAtPosition(position));
+					if (selectedProtocol.equals(String.valueOf(Protocol.HTTP))) {
+						SnackBar.warning(
+								ctx,
+								findViewById(android.R.id.content),
+								getString(R.string.protocolError));
+					}
+				});
+
+		activityLoginBinding.providerSpinner.setAdapter(adapterProviders);
+		activityLoginBinding.providerSpinner.setSelection(0);
+		activityLoginBinding.providerSpinner.setText(adapterProviders.getItem(0), false);
+		activityLoginBinding.providerSpinner.setOnItemClickListener(
+				(parent, view, position, id) ->
+						selectedProvider =
+								position == 0
+										? "gitea"
+										: position == 1 || position == 2 ? "forgejo" : "infer");
+
+		if (AppUtil.hasNetworkConnection(ctx)) {
+			enableProcessButton();
+		} else {
+			disableProcessButton();
+		}
+
+		activityLoginBinding.tokenHelper.setOnClickListener(token -> showTokenHelpDialog());
+
+		networkStatusObserver.registerNetworkStatusListener(
+				hasNetworkConnection ->
+						runOnUiThread(
+								() -> {
+									if (hasNetworkConnection) {
+										enableProcessButton();
+									} else {
+										disableProcessButton();
+										activityLoginBinding.loginButton.setText(btnText);
+										if (hasShownInitialNetworkError) {
+											SnackBar.error(
+													ctx,
+													findViewById(android.R.id.content),
+													getString(R.string.checkNetConnection));
+										}
+									}
+									hasShownInitialNetworkError = true;
+								}));
+
+		activityLoginBinding.loginButton.setOnClickListener(
+				view -> {
+					disableProcessButton();
+					login();
+				});
+
+		activityLoginBinding.restoreFromBackup.setOnClickListener(
+				restoreDb -> {
+					MaterialAlertDialogBuilder materialAlertDialogBuilder =
+							new MaterialAlertDialogBuilder(ctx)
+									.setTitle(R.string.restore)
+									.setMessage(
+											getResources()
+													.getString(R.string.restoreFromBackupPopupText))
+									.setNeutralButton(
+											R.string.cancelButton,
+											(dialog, which) -> dialog.dismiss())
+									.setPositiveButton(
+											R.string.restore,
+											(dialog, which) -> requestRestoreFile());
+
+					materialAlertDialogBuilder.create().show();
+				});
+	}
+
+	public static String getCleanUrlForDisplay(String rawUrl) {
+
+		if (rawUrl == null || rawUrl.isEmpty()) return "";
+
+		try {
+			URI uri = new URI(rawUrl);
+			String host = uri.getHost();
+			int port = uri.getPort();
+			String path = uri.getPath();
+
+			StringBuilder displayUrl = new StringBuilder(host != null ? host : "");
+
+			if (port != -1) {
+				displayUrl.append(":").append(port);
+			}
+
+			if (path != null && !path.isEmpty()) {
+				String cleanPath = path;
+				if (cleanPath.endsWith("/api/v1/")) {
+					cleanPath = cleanPath.substring(0, cleanPath.length() - 8);
+				} else if (cleanPath.endsWith("/api/v1")) {
+					cleanPath = cleanPath.substring(0, cleanPath.length() - 7);
+				}
+
+				if (!cleanPath.equals("/") && !cleanPath.isEmpty()) {
+					displayUrl.append(cleanPath);
+				}
+			}
+			return displayUrl.toString();
+
+		} catch (Exception e) {
+			String fallback = rawUrl.replace("https://", "").replace("http://", "");
+			if (fallback.endsWith("/api/v1/"))
+				fallback = fallback.substring(0, fallback.length() - 8);
+			if (fallback.endsWith("/api/v1"))
+				fallback = fallback.substring(0, fallback.length() - 7);
+			return fallback;
+		}
+	}
+
+	private void showProxyAuthDialog() {
+		View dialogView = getLayoutInflater().inflate(R.layout.custom_dialog_proxy_auth, null);
+
+		TextInputEditText usernameInput = dialogView.findViewById(R.id.proxyUsername);
+		TextInputEditText passwordInput = dialogView.findViewById(R.id.proxyPassword);
+
+		if (proxyAuthUsername != null && !proxyAuthUsername.isEmpty()) {
+			usernameInput.setText(proxyAuthUsername);
+		}
+		if (proxyAuthPassword != null && !proxyAuthPassword.isEmpty()) {
+			passwordInput.setText(proxyAuthPassword);
+		}
+
+		MaterialAlertDialogBuilder dialogBuilder =
+				new MaterialAlertDialogBuilder(this)
+						.setView(dialogView)
+						.setNegativeButton(R.string.clear_proxy_creds, null)
+						.setNeutralButton(R.string.skip_proxy_creds, null)
+						.setPositiveButton(R.string.save_proxy_creds, null);
+
+		AlertDialog dialog = dialogBuilder.create();
+
+		dialog.setOnShowListener(
+				dialogInterface -> {
+					Button positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+					Button negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+					Button neutralButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+
+					positiveButton.setOnClickListener(
+							view -> {
+								String enteredUsername =
+										usernameInput.getText() != null
+												? usernameInput.getText().toString().trim()
+												: "";
+								String enteredPassword =
+										passwordInput.getText() != null
+												? passwordInput.getText().toString().trim()
+												: "";
+
+								if (enteredUsername.isEmpty() && enteredPassword.isEmpty()) {
+									proxyAuthUsername = null;
+									proxyAuthPassword = null;
+									SnackBar.info(
+											ctx,
+											findViewById(android.R.id.content),
+											getString(R.string.proxy_creds_cleared));
+									dialog.dismiss();
+									return;
+								}
+
+								boolean usernameFilled = !enteredUsername.isEmpty();
+								boolean passwordFilled = !enteredPassword.isEmpty();
+
+								if (usernameFilled != passwordFilled) {
+									SnackBar.error(
+											ctx,
+											findViewById(android.R.id.content),
+											getString(R.string.proxy_creds_required_msg));
+
+									if (usernameFilled) {
+										passwordInput.setText("");
+										passwordInput.requestFocus();
+									} else {
+										usernameInput.setText("");
+										usernameInput.requestFocus();
+									}
+									return;
+								}
+
+								proxyAuthUsername = enteredUsername;
+								proxyAuthPassword = enteredPassword;
+								SnackBar.info(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.proxy_creds_saved));
+								dialog.dismiss();
+							});
+
+					negativeButton.setOnClickListener(
+							view -> {
+								proxyAuthUsername = null;
+								proxyAuthPassword = null;
+								SnackBar.info(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.proxy_creds_cleared));
+								dialog.dismiss();
+							});
+
+					neutralButton.setOnClickListener(view -> dialog.dismiss());
+				});
+
+		dialog.show();
+	}
+
+	private void showTokenHelpDialog() {
+
+		MaterialAlertDialogBuilder dialogBuilder =
+				new MaterialAlertDialogBuilder(this)
+						.setMessage(
+								HtmlCompat.fromHtml(
+										getString(R.string.where_to_get_token_message),
+										HtmlCompat.FROM_HTML_MODE_LEGACY))
+						.setPositiveButton(R.string.close, null)
+						.setCancelable(true);
+
+		AlertDialog dialog = dialogBuilder.create();
+		dialog.show();
+
+		TextView messageView = dialog.findViewById(android.R.id.message);
+		if (messageView != null) {
+			messageView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+			int paddingTop =
+					(int)
+							TypedValue.applyDimension(
+									TypedValue.COMPLEX_UNIT_DIP,
+									16,
+									getResources().getDisplayMetrics());
+			messageView.setPadding(
+					messageView.getPaddingLeft(),
+					paddingTop,
+					messageView.getPaddingRight(),
+					messageView.getPaddingBottom());
+		}
+	}
+
+	private void login() {
+
+		try {
+
+			if (selectedProvider == null || selectedProvider.isEmpty()) {
+				SnackBar.error(
+						ctx,
+						findViewById(android.R.id.content),
+						getString(R.string.provider_empty_error));
+				enableProcessButton();
+				return;
+			}
+
+			if (selectedProtocol == null) {
+
+				SnackBar.error(
+						ctx,
+						findViewById(android.R.id.content),
+						getString(R.string.protocolEmptyError));
+				enableProcessButton();
+				return;
+			}
+
+			if (Objects.requireNonNull(activityLoginBinding.instanceUrl.getText())
+					.toString()
+					.isEmpty()) {
+
+				SnackBar.error(
+						ctx, findViewById(android.R.id.content), getString(R.string.emptyFieldURL));
+				enableProcessButton();
+				return;
+			}
+
+			String loginToken =
+					Objects.requireNonNull(activityLoginBinding.loginTokenCode.getText())
+							.toString()
+							.replaceAll("[\\uFEFF|#]", "")
+							.trim();
+
+			if (loginToken.isEmpty()) {
+
+				SnackBar.error(
+						ctx,
+						findViewById(android.R.id.content),
+						getString(R.string.loginTokenError));
+				enableProcessButton();
+				return;
+			}
+
+			URI rawInstanceUrl =
+					UrlBuilder.fromString(
+									UrlHelper.fixScheme(
+											Objects.requireNonNull(
+															activityLoginBinding.instanceUrl
+																	.getText())
+													.toString()
+													.replaceAll("[\\uFEFF|#]", "")
+													.trim(),
+											"http"))
+							.toUri();
+
+			instanceUrl =
+					UrlBuilder.fromUri(rawInstanceUrl)
+							.withScheme(selectedProtocol.toLowerCase())
+							.withPath(PathsHelper.join(rawInstanceUrl.getPath(), "/api/v1/"))
+							.toUri();
+
+			versionCheck(loginToken);
+			serverPageLimitSettings(String.valueOf(instanceUrl), loginToken);
+
+		} catch (Exception e) {
+
+			SnackBar.error(
+					ctx, findViewById(android.R.id.content), getString(R.string.malformedUrl));
+			enableProcessButton();
+		}
+	}
+
+	private void serverPageLimitSettings(String instanceUrl, String loginToken) {
+		Call<GeneralAPISettings> generalAPISettings =
+				RetrofitClient.getApiInterface(
+								ctx,
+								instanceUrl,
+								"token " + loginToken,
+								null,
+								proxyAuthUsername,
+								proxyAuthPassword)
+						.getGeneralAPISettings();
+		generalAPISettings.enqueue(
+				new Callback<>() {
+
+					@Override
+					public void onResponse(
+							@NonNull final Call<GeneralAPISettings> generalAPISettings,
+							@NonNull retrofit2.Response<GeneralAPISettings> response) {
+
+						if (response.code() == 200 && response.body() != null) {
+
+							if (response.body().getMaxResponseItems() != null) {
+								maxResponseItems =
+										Math.toIntExact(response.body().getMaxResponseItems());
+							}
+							if (response.body().getDefaultPagingNum() != null) {
+								defaultPagingNumber =
+										Math.toIntExact(response.body().getDefaultPagingNum());
+							}
+						}
+					}
+
+					@Override
+					public void onFailure(
+							@NonNull Call<GeneralAPISettings> generalAPISettings,
+							@NonNull Throwable t) {}
+				});
+	}
+
+	private void versionCheck(final String loginToken) {
+
+		Call<ServerVersion> callVersion =
+				RetrofitClient.getApiInterface(
+								ctx,
+								instanceUrl.toString(),
+								"token " + loginToken,
+								null,
+								proxyAuthUsername,
+								proxyAuthPassword)
+						.getVersion();
+
+		callVersion.enqueue(
+				new Callback<>() {
+
+					@Override
+					public void onResponse(
+							@NonNull final Call<ServerVersion> callVersion,
+							@NonNull retrofit2.Response<ServerVersion> responseVersion) {
+
+						if (responseVersion.code() == 200) {
+
+							ServerVersion version = responseVersion.body();
+							assert version != null;
+
+							if (!Version.valid(version.getVersion())) {
+
+								SnackBar.error(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.versionUnknown));
+								enableProcessButton();
+								return;
+							}
+
+							giteaVersion = new Version(version.getVersion());
+							if (selectedProvider.equals("infer")) {
+								selectedProvider = AppUtil.inferProvider(version.getVersion());
+							}
+
+							if (giteaVersion.less(getString(R.string.versionLow))) {
+
+								MaterialAlertDialogBuilder materialAlertDialogBuilder =
+										new MaterialAlertDialogBuilder(ctx)
+												.setTitle(
+														getString(
+																R.string.versionAlertDialogHeader))
+												.setMessage(
+														getResources()
+																.getString(
+																		R.string
+																				.versionUnsupportedOld,
+																		version.getVersion()))
+												.setNeutralButton(
+														getString(R.string.cancelButton),
+														(dialog, which) -> {
+															dialog.dismiss();
+															enableProcessButton();
+														})
+												.setPositiveButton(
+														getString(R.string.textContinue),
+														(dialog, which) -> {
+															dialog.dismiss();
+															login(loginToken);
+														});
+
+								materialAlertDialogBuilder.create().show();
+							} else if (giteaVersion.lessOrEqual(getString(R.string.versionHigh))) {
+
+								login(loginToken);
+							} else {
+
+								SnackBar.warning(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.versionUnsupportedNew));
+								login(loginToken);
+							}
+
+						} else if (responseVersion.code() == 403) {
+
+							login(loginToken);
+						}
+					}
+
+					private void login(String loginToken) {
+
+						setupUsingExistingToken(loginToken);
+					}
+
+					@Override
+					public void onFailure(
+							@NonNull Call<ServerVersion> callVersion, @NonNull Throwable t) {
+
+						SnackBar.error(
+								ctx,
+								findViewById(android.R.id.content),
+								getString(R.string.genericServerResponseError));
+						enableProcessButton();
+					}
+				});
+	}
+
+	private void setupUsingExistingToken(final String loginToken) {
+
+		Call<User> call =
+				RetrofitClient.getApiInterface(
+								ctx,
+								instanceUrl.toString(),
+								"token " + loginToken,
+								null,
+								proxyAuthUsername,
+								proxyAuthPassword)
+						.userGetCurrent();
+
+		call.enqueue(
+				new Callback<>() {
+
+					@Override
+					public void onResponse(
+							@NonNull Call<User> call, @NonNull retrofit2.Response<User> response) {
+
+						User userDetails = response.body();
+
+						switch (response.code()) {
+							case 200:
+								assert userDetails != null;
+
+								// insert new account to db if does not exist
+								String accountName = userDetails.getLogin() + "@" + instanceUrl;
+								UserAccountsApi userAccountsApi =
+										BaseApi.getInstance(ctx, UserAccountsApi.class);
+								assert userAccountsApi != null;
+								boolean userAccountExists =
+										userAccountsApi.userAccountExists(accountName);
+								UserAccount account;
+								if (!userAccountExists) {
+									long accountId =
+											userAccountsApi.createNewAccount(
+													accountName,
+													instanceUrl.toString(),
+													userDetails.getLogin(),
+													loginToken,
+													giteaVersion.toString(),
+													maxResponseItems,
+													defaultPagingNumber,
+													selectedProvider);
+
+									// Save or clear proxy credentials
+									userAccountsApi.updateProxyAuthCredentials(
+											(int) accountId,
+											(proxyAuthUsername != null
+															&& !proxyAuthUsername.isEmpty()
+															&& proxyAuthPassword != null
+															&& !proxyAuthPassword.isEmpty())
+													? proxyAuthUsername
+													: null,
+											(proxyAuthUsername != null
+															&& !proxyAuthUsername.isEmpty()
+															&& proxyAuthPassword != null
+															&& !proxyAuthPassword.isEmpty())
+													? proxyAuthPassword
+													: null);
+
+									account = userAccountsApi.getAccountById((int) accountId);
+								} else {
+									userAccountsApi.updateTokenByAccountName(
+											accountName, loginToken);
+									userAccountsApi.updateProvider(
+											selectedProvider,
+											userAccountsApi
+													.getAccountByName(accountName)
+													.getAccountId());
+
+									UserAccount existingAccount =
+											userAccountsApi.getAccountByName(accountName);
+									userAccountsApi.updateProxyAuthCredentials(
+											existingAccount.getAccountId(),
+											(proxyAuthUsername != null
+															&& !proxyAuthUsername.isEmpty()
+															&& proxyAuthPassword != null
+															&& !proxyAuthPassword.isEmpty())
+													? proxyAuthUsername
+													: null,
+											(proxyAuthUsername != null
+															&& !proxyAuthUsername.isEmpty()
+															&& proxyAuthPassword != null
+															&& !proxyAuthPassword.isEmpty())
+													? proxyAuthPassword
+													: null);
+
+									userAccountsApi.login(
+											userAccountsApi
+													.getAccountByName(accountName)
+													.getAccountId());
+									account = userAccountsApi.getAccountByName(accountName);
+								}
+
+								AppUtil.switchToAccount(LoginActivity.this, account);
+
+								enableProcessButton();
+								startActivity(new Intent(LoginActivity.this, MainActivity.class));
+								finish();
+								break;
+							case 401:
+								SnackBar.error(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.unauthorizedApiError));
+								enableProcessButton();
+								break;
+							default:
+								SnackBar.error(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.genericApiError, response.code()));
+								enableProcessButton();
+						}
+					}
+
+					@Override
+					public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
+
+						SnackBar.error(
+								ctx,
+								findViewById(android.R.id.content),
+								getString(R.string.genericServerResponseError));
+						enableProcessButton();
+					}
+				});
+	}
+
+	private void disableProcessButton() {
+
+		activityLoginBinding.loginButton.setText(R.string.processingText);
+		activityLoginBinding.loginButton.setEnabled(false);
+	}
+
+	private void enableProcessButton() {
+
+		activityLoginBinding.loginButton.setText(btnText);
+		activityLoginBinding.loginButton.setEnabled(true);
+	}
+
+	private void requestRestoreFile() {
+
+		Intent intentRestore = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+		intentRestore.addCategory(Intent.CATEGORY_OPENABLE);
+		intentRestore.setType("*/*");
+		String[] mimeTypes = {"application/octet-stream", "application/x-zip"};
+		intentRestore.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+
+		activityRestoreFileLauncher.launch(intentRestore);
+	}
+
+	ActivityResultLauncher<Intent> activityRestoreFileLauncher =
+			registerForActivityResult(
+					new ActivityResultContracts.StartActivityForResult(),
+					result -> {
+						if (result.getResultCode() == Activity.RESULT_OK) {
+
+							assert result.getData() != null;
+
+							Uri restoreFileUri = result.getData().getData();
+							assert restoreFileUri != null;
+
+							try {
+								InputStream inputStream =
+										getContentResolver().openInputStream(restoreFileUri);
+								restoreDatabaseThread(inputStream);
+							} catch (FileNotFoundException e) {
+								SnackBar.error(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.restoreError));
+							}
+						}
+					});
+
+	private void restoreDatabaseThread(InputStream inputStream) {
+
+		Thread restoreDatabaseThread =
+				new Thread(
+						() -> {
+							boolean exceptionOccurred = false;
+
+							try {
+
+								String tempDir = getTempDir(ctx).getPath();
+
+								unzip(inputStream, tempDir);
+								checkpointIfWALEnabled(ctx, DATABASE_NAME);
+								restoreDatabaseFile(ctx, tempDir, DATABASE_NAME);
+
+								UserAccountsApi userAccountsApi =
+										BaseApi.getInstance(ctx, UserAccountsApi.class);
+								assert userAccountsApi != null;
+								UserAccount account = userAccountsApi.getAccountById(1);
+								AppUtil.switchToAccount(ctx, account);
+							} catch (final Exception e) {
+
+								exceptionOccurred = true;
+								SnackBar.error(
+										ctx,
+										findViewById(android.R.id.content),
+										getString(R.string.restoreError));
+							} finally {
+								if (!exceptionOccurred) {
+
+									runOnUiThread(this::restartApp);
+								}
+							}
+						});
+
+		restoreDatabaseThread.setDaemon(false);
+		restoreDatabaseThread.start();
+	}
+
+	public void restoreDatabaseFile(Context context, String tempDir, String nameOfFileToRestore)
+			throws IOException {
+
+		File currentDbFile = new File(context.getDatabasePath(DATABASE_NAME).getPath());
+		File newDbFile = new File(tempDir + "/" + nameOfFileToRestore);
+		if (newDbFile.exists()) {
+			copyFile(newDbFile, currentDbFile, false);
+		}
+	}
+
+	public void restartApp() {
+		Intent i = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+		assert i != null;
+		startActivity(Intent.makeRestartActivityTask(i.getComponent()));
+		Runtime.getRuntime().exit(0);
+	}
+}
