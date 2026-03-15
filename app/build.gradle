@@ -23,7 +23,6 @@ android {
             applicationId "org.mian.gitnex.pro"
         }
         nightly {
-        dimension "dist"
         applicationIdSuffix ".nightly"
         versionNameSuffix "-nightly"
     }
