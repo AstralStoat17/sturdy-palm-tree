@@ -18,10 +18,10 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Free Release APK
-        run: ./gradlew assembleFreeRelease
+        run: ./gradlew assembleNightlyDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gitnex
-          path: app/build/outputs/apk/free/release/*.apk
+          name: gitnex-nightly
+          path: app/build/outputs/apk/nightly/debug/*.apk
