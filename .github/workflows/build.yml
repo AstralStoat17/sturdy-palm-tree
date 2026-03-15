@@ -2,8 +2,6 @@ name: Build Android
 
 on:
   push:
-    paths:
-    []
 
 jobs:
   build:
