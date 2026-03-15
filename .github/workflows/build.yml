@@ -19,3 +19,9 @@ jobs:
 
       - name: Build Free Release APK
         run: ./gradlew assembleFreeRelease
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitnex
+          path: app/build/outputs/apk/free/release/*.apk
